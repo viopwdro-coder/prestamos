@@ -1,4 +1,6 @@
 <?php
+require_once "../config/auth.php";
+exigir_permiso("Gastos");
 require_once "../modelos/Gastos.php";
 
 $gastos=new Gastos();

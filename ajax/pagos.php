@@ -1,4 +1,6 @@
 <?php
+require_once "../config/auth.php";
+exigir_permiso("Pagos");
 require_once "../modelos/Pagos.php";
 
 $pago=new Pago();
