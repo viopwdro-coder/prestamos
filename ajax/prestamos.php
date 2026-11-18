@@ -1,5 +1,6 @@
 <?php
-//session_start(); 
+require_once "../config/auth.php";
+exigir_permiso("Prestamos");
 require_once "../modelos/Prestamos.php";
 
 $prestamo=new Prestamo();

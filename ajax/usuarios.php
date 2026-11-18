@@ -1,5 +1,12 @@
 <?php 
 session_start(); 
+require_once "../config/auth.php";
+
+//Solo el inicio y cierre de sesión son públicos; el resto exige permiso de Usuarios
+if (!in_array($_GET["op"], array("verificar","salir"))) {
+	exigir_permiso("Usuarios");
+}
+
 require_once "../modelos/Usuarios.php";
 
 $usuarios=new Usuarios();
@@ -125,6 +132,7 @@ case 'listar':
 
 		if (isset($fetch))
 	    {
+	        session_regenerate_id(true);
 	        //Declaramos las variables de sesión
 	        $_SESSION['idusuario']=$fetch->idusuario;
 	        $_SESSION['nombre']=$fetch->nombre;

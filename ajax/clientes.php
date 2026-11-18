@@ -1,4 +1,6 @@
 <?php 
+require_once "../config/auth.php";
+exigir_permiso("Clientes");
 require_once "../modelos/Clientes.php";
 
 $cliente=new Clientes();
