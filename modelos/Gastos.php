@@ -1,61 +1,88 @@
-<?php 
-//Incluimos inicialmente la conexion a la base de datos
-require "../config/Conexion.php";
-    
-Class Gastos
+<?php
+/**
+ * Modelo de gastos: acceso a la tabla `gastos`.
+ *
+ * @package Prestamos\Modelos
+ */
+require_once __DIR__ . "/../config/Database.php";
+
+/**
+ * Operaciones sobre los gastos operativos del negocio (RF-05).
+ */
+class Gastos
 {
-    //implementamos nuestro constructor
+    /**
+     * Constructor vacío; se mantiene por compatibilidad con ajax/.
+     */
     public function __construct()
-    {   
-    }
-    
-    //implementamos un metodo para insertar registros
-    public function insertar($idusuario,$fecha,$concepto,$gasto)
     {
-        $sql="INSERT INTO gastos (idusuario,fecha,concepto,gasto)
-		                  VALUES ('$idusuario','$fecha','$concepto','$gasto')";
-		return ejecutarConsulta($sql);
     }
-    
-    //Implementamos el metodo para Editar Registros
-    public function editar($idgasto,$idusuario,$fecha,$concepto,$gasto)
-	{
-		$sql="UPDATE gastos SET idusuario='$idusuario',
-                                fecha='$fecha',
-                                concepto='$concepto',
-                                gasto='$gasto' 
-                                WHERE idgasto='$idgasto'";
-		return ejecutarConsulta($sql);
-	}
-    
-    //implementamos el metodo eliminar
+
+    /**
+     * Registra un gasto.
+     *
+     * @param int    $idusuario Usuario responsable.
+     * @param string $fecha     Fecha del gasto.
+     * @param string $concepto  Descripción del gasto.
+     * @param float  $gasto     Valor del gasto.
+     * @return bool
+     */
+    public function insertar($idusuario, $fecha, $concepto, $gasto)
+    {
+        $sql = "INSERT INTO gastos (idusuario, fecha, concepto, gasto) VALUES (?, ?, ?, ?)";
+        return Consulta::ejecutar($sql, [$idusuario, $fecha, $concepto, $gasto]);
+    }
+
+    /**
+     * Actualiza un gasto.
+     *
+     * @param int    $idgasto   Identificador del gasto.
+     * @param int    $idusuario Usuario responsable.
+     * @param string $fecha     Fecha.
+     * @param string $concepto  Descripción.
+     * @param float  $gasto     Valor.
+     * @return bool
+     */
+    public function editar($idgasto, $idusuario, $fecha, $concepto, $gasto)
+    {
+        $sql = "UPDATE gastos
+                SET idusuario = ?, fecha = ?, concepto = ?, gasto = ?
+                WHERE idgasto = ?";
+        return Consulta::ejecutar($sql, [$idusuario, $fecha, $concepto, $gasto, $idgasto]);
+    }
+
+    /**
+     * Elimina un gasto.
+     *
+     * @param int $idgasto Identificador del gasto.
+     * @return bool
+     */
     public function eliminar($idgasto)
-	{
-		$sql="DELETE FROM gastos WHERE idgasto='$idgasto'";
-		return ejecutarConsulta($sql);
-	}
-    
-    //Implementar un método para mostrar los datos de un registro a modificar
-	public function mostrar($idgasto)
-	{
-		$sql="SELECT * FROM gastos WHERE idgasto='$idgasto'";
-		return ejecutarConsultaSimpleFila($sql);
-	}
-    
-//mostrar lista de la tabla gastos    
+    {
+        return Consulta::ejecutar("DELETE FROM gastos WHERE idgasto = ?", [$idgasto]);
+    }
+
+    /**
+     * Devuelve un gasto para editarlo.
+     *
+     * @param int $idgasto Identificador del gasto.
+     * @return array|null
+     */
+    public function mostrar($idgasto)
+    {
+        return Consulta::fila("SELECT * FROM gastos WHERE idgasto = ?", [$idgasto]);
+    }
+
+    /**
+     * Lista los gastos con el nombre del responsable.
+     *
+     * @return Resultado
+     */
     public function listar()
-	{
-		$sql="SELECT g.idgasto,
-                    g.idusuario,
-                    u.nombre as Usuario, 
-                    g.fecha,
-                    g.concepto,
-                    g.gasto 
-                    FROM gastos g INNER JOIN usuarios u 
-                    ON g.idusuario=u.idusuario";
-		return ejecutarConsulta($sql);		
-	}
-
+    {
+        $sql = "SELECT g.idgasto, g.idusuario, u.nombre AS Usuario, g.fecha, g.concepto, g.gasto
+                FROM gastos g
+                INNER JOIN usuarios u ON g.idusuario = u.idusuario";
+        return Consulta::listar($sql);
+    }
 }
-
-?>
