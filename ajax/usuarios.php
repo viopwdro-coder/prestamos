@@ -16,7 +16,8 @@ $nombre=isset($_POST["nombre"])? limpiarCadena($_POST["nombre"]):"";
 $direccion=isset($_POST["direccion"])? limpiarCadena($_POST["direccion"]):"";
 $telefono=isset($_POST["telefono"])? limpiarCadena($_POST["telefono"]):"";
 $login=isset($_POST["login"])? limpiarCadena($_POST["login"]):"";
-$clave=isset($_POST["clave"])? limpiarCadena($_POST["clave"]):"";
+//La clave no pasa por limpiarCadena: el modelo la guarda con password_hash
+$clave=isset($_POST["clave"])? $_POST["clave"]:"";
 $imagen=isset($_POST["imagen"])? limpiarCadena($_POST["imagen"]):"";
 
 switch ($_GET["op"]){
@@ -36,15 +37,18 @@ switch ($_GET["op"]){
 				move_uploaded_file($_FILES["imagen"]["tmp_name"], "../files/usuarios/" . $imagen);
 			}
 		}
-		//Hash SHA256 en la contraseña
-		$clavehash=hash("SHA256",$clave);
+		//La clave se envía sin cifrar: el modelo la guarda con password_hash
         
 		if (empty($idusuario)){
-			$rspta=$usuarios->insertar($nombre,$direccion,$telefono,$login,$clavehash,$imagen,$_POST['permiso']);
+			if ($clave === ""){
+				echo "La clave es obligatoria";
+				break;
+			}
+			$rspta=$usuarios->insertar($nombre,$direccion,$telefono,$login,$clave,$imagen,$_POST['permiso']);
 			echo $rspta ? "Usuario registrado" : "Usuario no se pudo registrar";
 		}
 		else {
-			$rspta=$usuarios->editar($idusuario,$nombre,$direccion,$telefono,$login,$clavehash,$imagen,$_POST['permiso']);
+			$rspta=$usuarios->editar($idusuario,$nombre,$direccion,$telefono,$login,$clave,$imagen,$_POST['permiso']);
 			echo $rspta ? "Usuario actualizado" : "Usuario no se pudo actualizar";
 		}
 	break;
@@ -123,10 +127,8 @@ case 'listar':
 		$logina=$_POST['logina'];
 	    $clavea=$_POST['clavea'];
 
-	    //Hash SHA256 en la contraseña
-		$clavehash=hash("SHA256",$clavea);
-
-		$rspta=$usuarios->verificar($logina, $clavehash);
+	    //La clave se envía sin cifrar: el modelo la compara con password_verify
+		$rspta=$usuarios->verificar($logina, $clavea);
 
 		$fetch=$rspta->fetch_object();
 

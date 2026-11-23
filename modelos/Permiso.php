@@ -9,7 +9,7 @@ require_once __DIR__ . "/../config/Database.php";
 /**
  * Consulta del catálogo de permisos (RF-07).
  */
-class Permiso
+class Permisos
 {
     /**
      * Constructor vacío; se mantiene por compatibilidad con ajax/.

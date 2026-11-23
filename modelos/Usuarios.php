@@ -27,7 +27,7 @@ class Usuarios
      * @param string $direccion  Dirección.
      * @param string $telefono   Teléfono.
      * @param string $login      Nombre de acceso.
-     * @param string $clave      Clave ya cifrada por el controlador.
+     * @param string $clave      Clave en texto plano; solo se guarda su hash (password_hash).
      * @param string $imagen     Nombre del archivo de foto.
      * @param array  $permisos   Identificadores de permisos a asignar.
      * @return bool true si todo se guardó.
@@ -40,7 +40,7 @@ class Usuarios
 
             $sql = "INSERT INTO usuarios (nombre, direccion, telefono, login, clave, imagen, estado)
                     VALUES (?, ?, ?, ?, ?, ?, 1)";
-            $pdo->prepare($sql)->execute([$nombre, $direccion, $telefono, $login, $clave, $imagen]);
+            $pdo->prepare($sql)->execute([$nombre, $direccion, $telefono, $login, password_hash($clave, PASSWORD_DEFAULT), $imagen]);
             $idusuario = (int) $pdo->lastInsertId();
 
             $this->asignarPermisos($pdo, $idusuario, $permisos);
@@ -64,7 +64,7 @@ class Usuarios
      * @param string $direccion  Dirección.
      * @param string $telefono   Teléfono.
      * @param string $login      Nombre de acceso.
-     * @param string $clave      Clave ya cifrada por el controlador.
+     * @param string $clave      Clave nueva en texto plano; si va vacía se conserva la actual.
      * @param string $imagen     Archivo de foto.
      * @param array  $permisos   Permisos nuevos.
      * @return bool true si todo se guardó.
@@ -75,10 +75,18 @@ class Usuarios
         try {
             $pdo->beginTransaction();
 
-            $sql = "UPDATE usuarios
-                    SET nombre = ?, direccion = ?, telefono = ?, login = ?, clave = ?, imagen = ?
-                    WHERE idusuario = ?";
-            $pdo->prepare($sql)->execute([$nombre, $direccion, $telefono, $login, $clave, $imagen, $idusuario]);
+            if ($clave === "" || $clave === null) {
+                // Sin clave nueva: se conserva la que ya tiene
+                $sql = "UPDATE usuarios
+                        SET nombre = ?, direccion = ?, telefono = ?, login = ?, imagen = ?
+                        WHERE idusuario = ?";
+                $pdo->prepare($sql)->execute([$nombre, $direccion, $telefono, $login, $imagen, $idusuario]);
+            } else {
+                $sql = "UPDATE usuarios
+                        SET nombre = ?, direccion = ?, telefono = ?, login = ?, clave = ?, imagen = ?
+                        WHERE idusuario = ?";
+                $pdo->prepare($sql)->execute([$nombre, $direccion, $telefono, $login, password_hash($clave, PASSWORD_DEFAULT), $imagen, $idusuario]);
+            }
 
             $pdo->prepare("DELETE FROM usuariopermiso WHERE idusuario = ?")->execute([$idusuario]);
             $this->asignarPermisos($pdo, $idusuario, $permisos);
@@ -141,7 +149,7 @@ class Usuarios
      */
     public function mostrar($idusuario)
     {
-        return Consulta::fila("SELECT * FROM usuarios WHERE idusuario = ?", [$idusuario]);
+        return Consulta::fila("SELECT idusuario, nombre, direccion, telefono, login, imagen, estado FROM usuarios WHERE idusuario = ?", [$idusuario]);
     }
 
     /**
@@ -166,22 +174,72 @@ class Usuarios
     }
 
     /**
-     * Verifica las credenciales de un usuario activo.
+     * Verifica las credenciales de un usuario activo (RF-09, RNF-08).
      *
-     * Usa consulta preparada. La clave llega ya convertida a hash SHA-256
-     * desde ajax/usuarios.php. Pendiente de la tarea B3: cambiar a
-     * password_verify() con hash de password_hash().
+     * Las claves se guardan con password_hash y se comprueban con password_verify.
+     * Las cuentas antiguas guardadas con SHA-256 entran una última vez: en ese
+     * primer acceso correcto su clave se convierte a password_hash automáticamente.
      *
      * @param string $login Nombre de acceso.
-     * @param string $clave Hash de la clave.
-     * @return Resultado Vacío si las credenciales no son válidas.
+     * @param string $clave Clave en texto plano, tal como la escribió el usuario.
+     * @return Resultado Con los datos del usuario; vacío si las credenciales no son válidas.
      */
     public function verificar($login, $clave)
     {
-        $sql = "SELECT idusuario, nombre, direccion, telefono, imagen, login
-                FROM usuarios
-                WHERE login = ? AND clave = ? AND estado = 1";
-        return Consulta::listar($sql, [$login, $clave]);
+        $columnas = "idusuario, nombre, direccion, telefono, imagen, login";
+
+        $usuario = Consulta::fila("SELECT idusuario, clave FROM usuarios WHERE login = ? AND estado = 1", [$login]);
+
+        if ($usuario !== null && $this->claveCorrecta($usuario, $clave)) {
+            return Consulta::listar("SELECT $columnas FROM usuarios WHERE idusuario = ?", [$usuario["idusuario"]]);
+        }
+
+        // Credenciales incorrectas: resultado vacío (fetch_object() devuelve null)
+        return Consulta::listar("SELECT $columnas FROM usuarios WHERE 1 = 0");
+    }
+
+    /**
+     * Compara la clave escrita con la guardada y, si hace falta, actualiza el hash.
+     *
+     * @param array  $usuario Fila con idusuario y clave guardada.
+     * @param string $clave   Clave en texto plano.
+     * @return bool true si la clave es correcta.
+     */
+    private function claveCorrecta(array $usuario, $clave)
+    {
+        $guardada = (string) $usuario["clave"];
+
+        // Clave guardada con password_hash
+        if (!empty(password_get_info($guardada)["algo"])) {
+            if (!password_verify($clave, $guardada)) {
+                return false;
+            }
+            if (password_needs_rehash($guardada, PASSWORD_DEFAULT)) {
+                $this->guardarHash($usuario["idusuario"], $clave);
+            }
+            return true;
+        }
+
+        // Cuenta antigua guardada con SHA-256 (64 caracteres hexadecimales)
+        if (preg_match('/^[a-f0-9]{64}$/i', $guardada) === 1
+            && hash_equals(strtolower($guardada), hash("sha256", $clave))) {
+            $this->guardarHash($usuario["idusuario"], $clave);
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Guarda el hash (password_hash) de una clave para un usuario.
+     *
+     * @param int    $idusuario Identificador del usuario.
+     * @param string $clave     Clave en texto plano.
+     * @return bool
+     */
+    private function guardarHash($idusuario, $clave)
+    {
+        return Consulta::ejecutar("UPDATE usuarios SET clave = ? WHERE idusuario = ?", [password_hash($clave, PASSWORD_DEFAULT), $idusuario]);
     }
 
     /**
