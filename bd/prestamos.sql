@@ -176,7 +176,7 @@ CREATE TABLE `usuarios` (
   `direccion` varchar(100) DEFAULT NULL,
   `telefono` varchar(15) DEFAULT NULL,
   `login` varchar(20) NOT NULL,
-  `clave` varchar(64) NOT NULL,
+  `clave` varchar(255) NOT NULL,
   `imagen` varchar(50) DEFAULT NULL,
   `estado` tinyint(4) DEFAULT '1'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;

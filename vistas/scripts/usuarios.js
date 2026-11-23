@@ -25,6 +25,7 @@ function limpiar()
 	$("#telefono").val("");
 	$("#login").val("");
 	$("#clave").val("");
+	$("#clave").prop("required",true).attr("placeholder","Clave");
 	$("#imagenmuestra").attr("src","");
 	$("#imagenactual").val("");
 	$("#idusuario").val("");
@@ -118,7 +119,8 @@ function mostrar(idusuario)
 		$("#direccion").val(data.direccion);
 		$("#telefono").val(data.telefono);
 		$("#login").val(data.login);
-		$("#clave").val(data.clave);
+		$("#clave").val("");
+		$("#clave").prop("required",false).attr("placeholder","Dejar vacío para conservar la clave actual");
 		$("#imagenmuestra").show();
 		$("#imagenmuestra").attr("src","../files/usuarios/"+data.imagen);
 		$("#imagenactual").val(data.imagen);
